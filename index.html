@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoloMC Security Shield Tester</title>
+  <!-- Load your security shield first -->
+  <script src="security-shield.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1, h2 { margin-top: 0; }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #1d4ed8; }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0 12px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .pass { color: #4ade80; font-weight: bold; }
+    .fail { color: #f87171; font-weight: bold; }
+    pre {
+      background: #0d0d0d;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Security Shield Diagnostic</h1>
+
+  <!-- TEST 1: Script & Domain Lock Status -->
+  <div class="card">
+    <h2>1. Shield & Domain Lock Status</h2>
+    <p id="status-output">Checking...</p>
+  </div>
+
+  <!-- TEST 2: XSS Sanitizer Test -->
+  <div class="card">
+    <h2>2. XSS Input Sanitization Test</h2>
+    <p>Tests whether malicious scripts and event handlers are stripped from text.</p>
+    <button type="button" onclick="runXssTest()">Run XSS Payload Test</button>
+    <pre id="xss-output">Click the button to test...</pre>
+  </div>
+
+  <!-- TEST 3: Form Rate-Limiter & Auto-Sanitize Test -->
+  <div class="card">
+    <h2>3. Form Rate-Limit & Submit Guard</h2>
+    <p>Submit once, then immediately click submit again within 3 seconds to trigger the rate limit alert.</p>
+    <form id="test-form">
+      <label for="test-input">Test Input (contains fake malicious script):</label>
+      <input type="text" id="test-input" value='Hello <script>alert("hacked")</script> <img src=x onerror="steal()">' />
+      <button type="submit">Submit Form</button>
+    </form>
+    <pre id="form-output">Waiting for submission...</pre>
+  </div>
+
+  <!-- TEST 4: Clickjacking / Iframe Protection Test -->
+  <div class="card">
+    <h2>4. Anti-Clickjacking (Iframe) Test</h2>
+    <p>Attempts to load this page inside a hidden iframe. If blocked, the iframe will stay blank or redirect.</p>
+    <button type="button" onclick="runIframeTest()">Test Iframe Embed</button>
+    <div id="iframe-container" style="margin-top: 12px;"></div>
+  </div>
+
+  <script>
+    // 1. Check if SoloShield loaded properly
+    const statusEl = document.getElementById("status-output");
+    if (window.SoloShield && typeof window.SoloShield.sanitize === "function") {
+      statusEl.innerHTML = '<span class="pass">PASS:</span> security-shield.js is active on domain: <strong>' + window.location.hostname + '</strong>';
+    } else {
+      statusEl.innerHTML = '<span class="fail">FAIL:</span> security-shield.js did not load. Check the script file path.';
+    }
+
+    // 2. Test the sanitize function directly
+    function runXssTest() {
+      const maliciousPayload = 'Normal text <script>alert("XSS")<\/script> <a href="javascript:void(0)" onclick="hack()">link</a>';
+      const cleaned = window.SoloShield.sanitize(maliciousPayload);
+      const passed = !cleaned.includes("<script>") && !cleaned.includes("javascript:") && !cleaned.includes("onclick=");
+
+      document.getElementById("xss-output").textContent =
+        "Result:   " + (passed ? "PASS (Threats stripped)" : "FAIL") + "\n" +
+        "Original: " + maliciousPayload + "\n" +
+        "Cleaned:  " + cleaned;
+    }
+
+    // 3. Intercept form submission after security-shield.js processes it
+    document.getElementById("test-form").addEventListener("submit", function (e) {
+      e.preventDefault(); // Prevent page reload so you can see the output
+      const inputVal = document.getElementById("test-input").value;
+      document.getElementById("form-output").textContent =
+        "Form submitted! Sanitized value sent:\n" + inputVal;
+    });
+
+    // 4. Test embedding the current page inside an iframe
+    function runIframeTest() {
+      const container = document.getElementById("iframe-container");
+      container.innerHTML = '<iframe src="' + window.location.href + '" width="100%" height="120" style="border: 1px solid #444;"></iframe>';
+    }
+  </script>
+</body>
+</html>
